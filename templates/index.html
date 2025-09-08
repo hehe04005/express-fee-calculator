@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>快递费用核算工具 (大数据版)</title>
+    <style>
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .container { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        h1 { color: #333; text-align: center; margin-bottom: 30px; font-size: 28px; }
+        .rules { background: #f8f9fa; border-left: 4px solid #007bff; padding: 20px; margin-bottom: 30px; border-radius: 5px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="file"], select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .radio-group { display: flex; gap: 20px; margin-bottom: 15px; }
+        .btn { padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        .btn:hover { background: #218838; }
+        .btn:disabled { background: #6c757d; cursor: not-allowed; }
+        .progress { width: 100%; height: 20px; background: #e9ecef; border-radius: 10px; overflow: hidden; margin: 10px 0; display: none; }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #28a745, #20c997); width: 0%; transition: width 0.3s; }
+        .results { margin-top: 30px; display: none; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 8px; text-align: center; }
+        .stat-value { font-size: 20px; font-weight: bold; }
+        .stat-label { font-size: 12px; opacity: 0.9; }
+        .error { color: #dc3545; margin-top: 10px; }
+        .success { color: #28a745; margin-top: 10px; }
+        .processing { color: #17a2b8; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 快递费用核算工具 (大数据版)</h1>
+        
+        <div class="rules">
+            <h3>📋 功能说明</h3>
+            <ul>
+                <li><strong>小麦计费：</strong>10.5kg(±0.5)、12.5kg(±0.5)、21kg(±1)三档，区分河南省内外</li>
+                <li><strong>玉米计费：</strong>按重量和省份分级，超3kg采用首重+续重模式</li>
+                <li><strong>附加费用：</strong>可选上传，通过运单号匹配结算金额</li>
+                <li><strong>大数据支持：</strong>可处理数万条记录，自动生成Excel报告</li>
+            </ul>
+        </div>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>选择产品类型：</label>
+                <div class="radio-group">
+                    <label><input type="radio" name="product_type" value="小麦" checked> 小麦</label>
+                    <label><input type="radio" name="product_type" value="玉米"> 玉米</label>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="data_file">快递数据文件 (.csv/.xlsx)：</label>
+                <input type="file" id="data_file" name="data_file" accept=".csv,.xlsx" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="fee_file">附加费用文件 (可选)：</label>
+                <input type="file" id="fee_file" name="fee_file" accept=".csv,.xlsx">
+            </div>
+            
+            <button type="submit" class="btn">🚀 开始计算费用</button>
+            
+            <div class="progress" id="progress">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            
+            <div id="message"></div>
+        </form>
+        
+        <div class="results" id="results">
+            <div class="stats" id="stats"></div>
+            <div style="text-align: center;">
+                <a id="downloadLink" class="btn" style="text-decoration: none; display: none;">📊 下载详细结果</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const progress = document.getElementById('progress');
+            const progressBar = document.getElementById('progressBar');
+            const message = document.getElementById('message');
+            const results = document.getElementById('results');
+            
+            progress.style.display = 'block';
+            progressBar.style.width = '0%';
+            message.innerHTML = '<div class="processing">⏳ 正在处理数据，请耐心等待...</div>';
+            results.style.display = 'none';
+            
+            try {
+                progressBar.style.width = '20%';
+                
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                progressBar.style.width = '70%';
+                const result = await response.json();
+                progressBar.style.width = '100%';
+                
+                if (result.success) {
+                    const stats = result.stats;
+                    document.getElementById('stats').innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-value">${stats.total_orders}</div>
+                            <div class="stat-label">订单总数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">¥${stats.total_basic_fee.toFixed(2)}</div>
+                            <div class="stat-label">基础费用</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">¥${stats.total_additional_fee.toFixed(2)}</div>
+                            <div class="stat-label">附加费用</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">¥${stats.total_fee.toFixed(2)}</div>
+                            <div class="stat-label">总费用</div>
+                        </div>
+                    `;
+                    
+                    const downloadLink = document.getElementById('downloadLink');
+                    downloadLink.href = result.download_url;
+                    downloadLink.style.display = 'inline-block';
+                    
+                    results.style.display = 'block';
+                    message.innerHTML = '<div class="success">✅ 计算完成！点击下载查看详细结果。</div>';
+                } else {
+                    message.innerHTML = `<div class="error">❌ ${result.error}</div>`;
+                }
+                
+            } catch (error) {
+                message.innerHTML = `<div class="error">❌ 处理失败: ${error.message}</div>`;
+            }
+            
+            setTimeout(() => {
+                progress.style.display = 'none';
+                progressBar.style.width = '0%';
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
