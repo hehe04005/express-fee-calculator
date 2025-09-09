@@ -95,5 +95,4 @@ This project demonstrates end-to-end data science and software engineering capab
 Data science solution developed during internship at Henan Desheng Seeds Co., Ltd., addressing inefficiencies in manual logistics cost calculations.
 
 ## Developer
-**Zhao Yihe** - Data Science Graduate Student Applicant  
-*Work Project at Henan Desheng Seeds Co., Ltd.*
+**Zhao Yihe** 
